@@ -1,0 +1,108 @@
+{
+Example for POT Click
+
+    Date          : Dec 2018.
+    Author        : Nemanja Medakovic
+
+Test configuration AVR :
+    
+    MCU              : ATMEGA32
+    Dev. Board       : EasyAVR v7 
+    AVR Compiler ver : v7.0.1.0
+
+---
+
+Description :
+
+The application is composed of three sections :
+
+- System Initialization - Initializes peripherals and pins.
+- Application Initialization - Initializes GPIO interface and ADC.
+- Application Task - (code snippet) - Makes the averaged results by using the desired number of samples of AD conversion.
+  The averaged results will be calculated to millivolts [mV] and sent to the uart terminal.
+Note : The AD conversion will be performed on the analog (AN) pin on the mikrobus 1.
+
+}
+program Click_POT_AVR;
+
+uses Click_POT_types, Click_POT_config;
+
+const
+    N_SAMPLES : uint16_t = 100; 
+    ADC_V_REF_MV : uint16_t = 3299; 
+    ADC_12BIT_RESOL : uint16_t = 4096; 
+    ADC_10BIT_RESOL : uint16_t = 1024; 
+    
+var
+    adcRead : uint16_t; 
+    nSamples : uint16_t; 
+    adcMax : uint16_t; 
+    adcMin : uint16_t; 
+    adcAvrg : real; 
+    text : array[30] of char; 
+    
+procedure systemInit(); 
+begin
+    mikrobus_gpioInit(_MIKROBUS1, _MIKROBUS_AN_PIN, _GPIO_INPUT); 
+    mikrobus_logInit(_LOG_USBUART, 9600); 
+    mikrobus_logWrite('*** Initializing... ***', _LOG_LINE); 
+    Delay_ms(100); 
+end;
+
+procedure applicationInit(); 
+begin
+    pot_gpioDriverInit(T_POT_P(@_MIKROBUS1_GPIO)); 
+    Delay_ms(100); 
+    ADC_Init(); 
+    Delay_ms(100); 
+    mikrobus_logWrite('** POT is initialized **', _LOG_LINE); 
+    mikrobus_logWrite('', _LOG_LINE); 
+end;
+
+procedure applicationTask(); 
+begin
+    nSamples := 0;
+    while (nSamples < N_SAMPLES) do 
+    begin
+        adcRead := ADC_Get_Sample(7); 
+        if (nSamples = 0) then 
+        begin
+            adcMax := adcRead; 
+            adcMin := adcRead; 
+        end; 
+        if (adcRead > adcMax) then 
+        begin
+            adcMax := adcRead; 
+        end
+        else 
+        begin
+            if (adcRead < adcMin) then 
+            begin
+                adcMin := adcRead; 
+            end; 
+        end;
+        Delay_ms(1); 
+        inc(nSamples);
+    end;
+    adcAvrg := adcMax; 
+    adcAvrg := adcAvrg + adcMin; 
+    adcAvrg := adcAvrg / 2; 
+    adcAvrg := adcAvrg / ADC_10BIT_RESOL; 
+    adcAvrg := adcAvrg * ADC_V_REF_MV; 
+    adcRead := adcAvrg; 
+    WordToStr(adcRead, text); 
+    mikrobus_logWrite('** AN : ', _LOG_TEXT); 
+    mikrobus_logWrite(text, _LOG_TEXT); 
+    mikrobus_logWrite(' mV **', _LOG_LINE); 
+    Delay_ms(100); 
+end;
+
+begin
+
+    systemInit(); 
+    applicationInit(); 
+    while (1) do 
+    begin 
+        applicationTask(); 
+    end;
+end.

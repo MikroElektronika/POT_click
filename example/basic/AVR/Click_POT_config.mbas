@@ -1,0 +1,4 @@
+module Click_POT_config
+
+include Click_POT_types
+end.
